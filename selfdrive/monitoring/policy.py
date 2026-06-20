@@ -25,9 +25,9 @@ def to_percent(v):
 class DRIVER_MONITOR_SETTINGS:
   def __init__(self):
     # https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:42018X1947&rid=2
-    self._WHEELTOUCH_POLICY_ALERT_1_TIMEOUT = 15.
-    self._WHEELTOUCH_POLICY_ALERT_2_TIMEOUT = 24.
-    self._WHEELTOUCH_POLICY_ALERT_3_TIMEOUT = 30.
+    self._WHEELTOUCH_POLICY_ALERT_1_TIMEOUT = 915.
+    self._WHEELTOUCH_POLICY_ALERT_2_TIMEOUT = 924.
+    self._WHEELTOUCH_POLICY_ALERT_3_TIMEOUT = 930.
     # https://cdn.euroncap.com/cars/assets/euro_ncap_protocol_safe_driving_driver_engagement_v11_a30e874152.pdf
     self._VISION_POLICY_ALERT_1_TIMEOUT = 3.
     self._VISION_POLICY_ALERT_2_TIMEOUT = 5.
