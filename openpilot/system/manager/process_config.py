@@ -114,7 +114,7 @@ def not_(*fns):
   return lambda *args: operator.not_(*(fn(*args) for fn in fns))
 
 procs = [
-  DaemonProcess("manage_athenad", "openpilot.system.athena.manage_athenad", "AthenadPid"),
+ # DaemonProcess("manage_athenad", "openpilot.system.athena.manage_athenad", "AthenadPid"),
 
   NativeProcess("loggerd", "openpilot/system/loggerd", ["./loggerd"], logging),
   NativeProcess("encoderd", "openpilot/system/loggerd", ["./encoderd"], only_onroad),
@@ -158,7 +158,7 @@ procs = [
   PythonProcess("modem", "openpilot.common.hardware.tici.modem", always_run, enabled=TICI),
   PythonProcess("tombstoned", "openpilot.system.tombstoned", always_run, enabled=not PC),
   PythonProcess("updated", "openpilot.system.updated.updated", only_offroad, enabled=not PC),
-  PythonProcess("uploader", "openpilot.system.loggerd.uploader", uploader_ready),
+ # PythonProcess("uploader", "openpilot.system.loggerd.uploader", uploader_ready),
   PythonProcess("statsd", "openpilot.sunnypilot.system.statsd", always_run),
   PythonProcess("feedbackd", "openpilot.selfdrive.ui.feedback.feedbackd", only_onroad),
 
