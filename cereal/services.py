@@ -34,6 +34,7 @@ _services: dict[str, tuple] = {
   "peripheralState": (True, 2., 1),
   "radarState": (True, 20., 5),
   "roadEncodeIdx": (False, 20., 1),
+  "screenEncodeIdx": (False, 20., 1),
   "liveTracks": (True, 20.),
   "sendcan": (True, 100., 139, QueueSize.MEDIUM),
   "logMessage": (True, 0., None, QueueSize.BIG),
@@ -81,6 +82,7 @@ _services: dict[str, tuple] = {
   "driverEncodeData": (False, 20., None, QueueSize.BIG),
   "wideRoadEncodeData": (False, 20., None, QueueSize.BIG),
   "qRoadEncodeData": (False, 20., None, QueueSize.BIG),
+  "screenEncodeData": (False, 20., None, QueueSize.BIG),
 
   # sunnypilot
   "modelManagerSP": (False, 1., 1, QueueSize.BIG),

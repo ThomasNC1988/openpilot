@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstring>
 
 #include "system/loggerd/loggerd.h"
 #include "system/loggerd/encoder/jpeg_encoder.h"
@@ -62,7 +63,8 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
   bool has_adaptive = std::any_of(cam_info.encoder_infos.begin(), cam_info.encoder_infos.end(),
                                   [](const auto &ei) { return ei.adaptive_bitrate; });
 
-  VisionIpcClient vipc_client = VisionIpcClient("camerad", cam_info.stream_type, false);
+  bool camerad_backed = strcmp(cam_info.vipc_name, "camerad") == 0;
+  VisionIpcClient vipc_client = VisionIpcClient(cam_info.vipc_name, cam_info.stream_type, false);
 
   std::unique_ptr<JpegEncoder> jpeg_encoder;
 
@@ -91,6 +93,8 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
     }
 
     bool lagging = false;
+    bool got_first_frame = false;
+    uint32_t local_start_frame_id = 0;
     while (!do_exit) {
       VisionIpcBufExtra extra;
       VisionBuf* buf = vipc_client.recv(&extra);
@@ -106,14 +110,24 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
       }
       lagging = false;
 
-      if (!sync_encoders(s, cam_info.stream_type, extra.frame_id)) {
+      // streams not backed by camerad (e.g. screen recording) aren't part of the
+      // multi-camera startup sync, since they don't share camerad's frame_id sequence
+      if (camerad_backed && !sync_encoders(s, cam_info.stream_type, extra.frame_id)) {
         continue;
       }
       if (do_exit) break;
 
+      // streams not backed by camerad have their own independent frame_id sequence,
+      // so they need their own rotation baseline instead of the shared camera start_frame_id
+      if (!camerad_backed && !got_first_frame) {
+        local_start_frame_id = extra.frame_id;
+        got_first_frame = true;
+      }
+      const uint32_t seg_start_frame_id = camerad_backed ? s->start_frame_id.load() : local_start_frame_id;
+
       // do rotation if required
       const int frames_per_seg = SEGMENT_LENGTH * MAIN_FPS;
-      if (cur_seg >= 0 && extra.frame_id >= ((cur_seg + 1) * frames_per_seg) + s->start_frame_id) {
+      if (cur_seg >= 0 && extra.frame_id >= ((cur_seg + 1) * frames_per_seg) + seg_start_frame_id) {
         for (auto &e : encoders) {
           e->encoder_close();
           e->encoder_open();
@@ -142,6 +156,15 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
 template <size_t N>
 void encoderd_thread(const LogCameraInfo (&cameras)[N]) {
   EncoderdState s;
+  std::vector<std::thread> encoder_threads;
+
+  // cameras not backed by camerad (e.g. screen recording) run independently of
+  // camerad's stream discovery below, and don't participate in its start-frame sync
+  for (const auto &cam : cameras) {
+    if (strcmp(cam.vipc_name, "camerad") != 0) {
+      encoder_threads.push_back(std::thread(encoder_thread, &s, cam));
+    }
+  }
 
   std::set<VisionStreamType> streams;
   while (!do_exit) {
@@ -152,18 +175,16 @@ void encoderd_thread(const LogCameraInfo (&cameras)[N]) {
     util::sleep_for(100);
   }
 
-  if (!streams.empty()) {
-    std::vector<std::thread> encoder_threads;
-    for (auto stream : streams) {
-      auto it = std::find_if(std::begin(cameras), std::end(cameras),
-                             [stream](auto &cam) { return cam.stream_type == stream; });
-      assert(it != std::end(cameras));
-      ++s.max_waiting;
-      encoder_threads.push_back(std::thread(encoder_thread, &s, *it));
-    }
-
-    for (auto &t : encoder_threads) t.join();
+  for (auto stream : streams) {
+    auto it = std::find_if(std::begin(cameras), std::end(cameras), [stream](auto &cam) {
+      return strcmp(cam.vipc_name, "camerad") == 0 && cam.stream_type == stream;
+    });
+    assert(it != std::end(cameras));
+    ++s.max_waiting;
+    encoder_threads.push_back(std::thread(encoder_thread, &s, *it));
   }
+
+  for (auto &t : encoder_threads) t.join();
 }
 
 int main(int argc, char* argv[]) {

@@ -17,9 +17,11 @@ from enum import StrEnum
 from pathlib import Path
 from typing import NamedTuple
 from importlib.resources import as_file, files
+from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.hardware import HARDWARE, PC
 from openpilot.system.ui.lib.multilang import multilang
+from openpilot.system.ui.lib.screen_recorder import ScreenRecorder
 from openpilot.common.realtime import Ratekeeper
 
 from openpilot.system.ui.sunnypilot.lib.application import GuiApplicationExt
@@ -42,6 +44,7 @@ GRID_SIZE = int(os.getenv("GRID", "0"))
 PROFILE_RENDER = int(os.getenv("PROFILE_RENDER", "0"))
 PROFILE_STATS = int(os.getenv("PROFILE_STATS", "100"))  # Number of functions to show in profile output
 RECORD = os.getenv("RECORD") == "1"
+RECORD_SCREEN = Params().get_bool("RecordScreen")
 RECORD_OUTPUT = str(Path(os.getenv("RECORD_OUTPUT", "output")).with_suffix(".mp4"))
 RECORD_QUALITY = int(os.getenv("RECORD_QUALITY", "23"))  # Dynamic bitrate quality level (CRF); 0 is lossless (bigger size), max is 51, default is 23 for x264
 RECORD_BITRATE = os.getenv("RECORD_BITRATE", "")  # Target bitrate e.g. "2000k" (overrides RECORD_QUALITY when set)
@@ -221,6 +224,7 @@ class GuiApplication(GuiApplicationExt):
     self._ffmpeg_queue: queue.Queue | None = None
     self._ffmpeg_thread: threading.Thread | None = None
     self._ffmpeg_stop_event: threading.Event | None = None
+    self._screen_recorder: ScreenRecorder | None = None
     self._textures: dict[str, rl.Texture] = {}
     self._target_fps: int = _DEFAULT_FPS
     self._last_fps_log_time: float = time.monotonic()
@@ -283,12 +287,18 @@ class GuiApplication(GuiApplicationExt):
 
       rl.init_window(self._scaled_width, self._scaled_height, title)
 
-      needs_render_texture = self._scale != 1.0 or BURN_IN_MODE or RECORD
+      needs_render_texture = self._scale != 1.0 or BURN_IN_MODE or RECORD or RECORD_SCREEN
       if self._scale != 1.0:
         rl.set_mouse_scale(1 / self._scale, 1 / self._scale)
       if needs_render_texture:
         self._render_texture = rl.load_render_texture(self._scaled_width, self._scaled_height)
         rl.set_texture_filter(self._render_texture.texture, rl.TextureFilter.TEXTURE_FILTER_BILINEAR)
+
+      if RECORD_SCREEN:
+        try:
+          self._screen_recorder = ScreenRecorder(self._scaled_width, self._scaled_height)
+        except Exception as e:
+          cloudlog.error(f"failed to start screen recorder: {e}")
 
       if RECORD:
         output_fps = fps * RECORD_SPEED
@@ -570,6 +580,10 @@ class GuiApplication(GuiApplicationExt):
     if not PC:
       self._mouse.stop()
 
+    if self._screen_recorder is not None:
+      self._screen_recorder.close()
+      self._screen_recorder = None
+
     self.close_ffmpeg()
 
     rl.close_window()
@@ -670,6 +684,13 @@ class GuiApplication(GuiApplicationExt):
           data_size = image.width * image.height * 4
           data = bytes(rl.ffi.buffer(image.data, data_size))
           self._ffmpeg_queue.put(data)  # Async write via background thread
+          rl.unload_image(image)
+
+        if self._screen_recorder is not None and self._screen_recorder.should_capture():
+          image = rl.load_image_from_texture(self._render_texture.texture)
+          data_size = image.width * image.height * 4
+          data = bytes(rl.ffi.buffer(image.data, data_size))
+          self._screen_recorder.push_frame(data)  # NV12 conversion + publish happens off this thread
           rl.unload_image(image)
 
         self._monitor_fps()

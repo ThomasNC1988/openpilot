@@ -42,10 +42,6 @@ struct EncoderSettings {
     }
   }
 
-  static EncoderSettings QcamEncoderSettings() {
-    return EncoderSettings{.encode_type = cereal::EncodeIndex::Type::QCAMERA_H264, .bitrate = 256'000, .gop_size = 15};
-  }
-
   static EncoderSettings StreamEncoderSettings() {
     int _stream_bitrate = getenv("STREAM_BITRATE") ? atoi(getenv("STREAM_BITRATE")) : 5'000'000;
     return EncoderSettings{.encode_type = cereal::EncodeIndex::Type::QCAMERA_H264, .bitrate = _stream_bitrate , .gop_size = 5};
@@ -73,6 +69,7 @@ public:
 class LogCameraInfo {
 public:
   const char *thread_name;
+  const char *vipc_name = "camerad";
   int fps = MAIN_FPS;
   VisionStreamType stream_type;
   std::vector<EncoderInfo> encoder_infos;
@@ -126,20 +123,24 @@ const EncoderInfo stream_driver_encoder_info = {
   INIT_ENCODE_FUNCTIONS(LivestreamDriverEncode),
 };
 
-const EncoderInfo qcam_encoder_info = {
-  .publish_name = "qRoadEncodeData",
-  .filename = "qcamera.ts",
-  .include_audio = Params().getBool("RecordAudio"),
-  .frame_width = 526,
-  .frame_height = 330,
-  .get_settings = [](int){return EncoderSettings::QcamEncoderSettings();},
-  INIT_ENCODE_FUNCTIONS(QRoadEncode),
+const EncoderInfo screen_encoder_info = {
+  .publish_name = "screenEncodeData",
+  .filename = "screencam.hevc",
+  .get_settings = [](int in_width){return EncoderSettings::MainEncoderSettings(in_width);},
+  INIT_ENCODE_FUNCTIONS(ScreenEncode),
 };
 
 const LogCameraInfo road_camera_info{
   .thread_name = "road_cam_encoder",
   .stream_type = VISION_STREAM_ROAD,
-  .encoder_infos = {main_road_encoder_info, qcam_encoder_info}
+  .encoder_infos = {main_road_encoder_info}
+};
+
+const LogCameraInfo screen_camera_info{
+  .thread_name = "screen_cam_encoder",
+  .vipc_name = "screenrecordd",
+  .stream_type = VISION_STREAM_ROAD,
+  .encoder_infos = {screen_encoder_info}
 };
 
 const LogCameraInfo wide_road_camera_info{
@@ -172,5 +173,5 @@ const LogCameraInfo stream_driver_camera_info{
   .encoder_infos = {stream_driver_encoder_info},
 };
 
-const LogCameraInfo cameras_logged[] = {road_camera_info, wide_road_camera_info, driver_camera_info};
+const LogCameraInfo cameras_logged[] = {road_camera_info, wide_road_camera_info, driver_camera_info, screen_camera_info};
 const LogCameraInfo stream_cameras_logged[] = {stream_road_camera_info, stream_wide_road_camera_info, stream_driver_camera_info};

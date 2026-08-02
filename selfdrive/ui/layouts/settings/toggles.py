@@ -35,6 +35,7 @@ DESCRIPTIONS = {
   'RecordFront': tr_noop("Upload data from the driver facing camera and help improve the driver monitoring algorithm."),
   "IsMetric": tr_noop("Display speed in km/h instead of mph."),
   "RecordAudio": tr_noop("Record and store microphone audio while driving. The audio will be included in the dashcam video in comma connect."),
+  "RecordScreen": tr_noop("Record the device's screen output to a video file while driving, in place of qcamera.ts."),
 }
 
 
@@ -86,6 +87,12 @@ class TogglesLayout(Widget):
         lambda: tr("Record and Upload Microphone Audio"),
         DESCRIPTIONS["RecordAudio"],
         "microphone.png",
+        True,
+      ),
+      "RecordScreen": (
+        lambda: tr("Record Screen"),
+        DESCRIPTIONS["RecordScreen"],
+        "monitoring.png",
         True,
       ),
       "IsMetric": (
