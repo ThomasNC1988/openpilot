@@ -287,7 +287,7 @@ class GuiApplication(GuiApplicationExt):
 
       rl.init_window(self._scaled_width, self._scaled_height, title)
 
-      needs_render_texture = self._scale != 1.0 or BURN_IN_MODE or RECORD or RECORD_SCREEN
+      needs_render_texture = self._scale != 1.0 or BURN_IN_MODE or RECORD
       if self._scale != 1.0:
         rl.set_mouse_scale(1 / self._scale, 1 / self._scale)
       if needs_render_texture:
@@ -687,11 +687,20 @@ class GuiApplication(GuiApplicationExt):
           rl.unload_image(image)
 
         if self._screen_recorder is not None and self._screen_recorder.should_capture():
-          image = rl.load_image_from_texture(self._render_texture.texture)
-          data_size = image.width * image.height * 4
-          data = bytes(rl.ffi.buffer(image.data, data_size))
-          self._screen_recorder.push_frame(data)  # NV12 conversion + publish happens off this thread
-          rl.unload_image(image)
+          try:
+            # avoid forcing every frame through an extra offscreen-texture + filtered composite
+            # pass just for recording -- read the screen directly unless one already exists for
+            # another reason (scale != 1.0, burn-in mode, debug RECORD)
+            if self._render_texture:
+              image = rl.load_image_from_texture(self._render_texture.texture)
+            else:
+              image = rl.load_image_from_screen()
+            data_size = image.width * image.height * 4
+            data = bytes(rl.ffi.buffer(image.data, data_size))
+            self._screen_recorder.push_frame(data)  # NV12 conversion + publish happens off this thread
+            rl.unload_image(image)
+          except Exception as e:
+            cloudlog.error(f"screen capture readback failed: {e}")
 
         self._monitor_fps()
         self._frame += 1
