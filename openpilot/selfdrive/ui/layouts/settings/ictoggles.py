@@ -131,7 +131,7 @@ class ICTogglesLayout(Widget):
         False,
       ),
       "BatteryDetails": (
-        lambda: tr("VW MEB: Display Battery Details"),
+        lambda: tr("Display Battery Details"),
         DESCRIPTIONS["BatteryDetails"],
         "capslock-fill.png",
         False,
