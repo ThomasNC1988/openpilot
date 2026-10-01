@@ -131,6 +131,7 @@ struct ModelManagerSP @0xaedffd8f31e7b55d {
     downloaded @2;
     cached @3;
     failed @4;
+    verifying @5;
   }
 
   struct DownloadProgress {
@@ -352,6 +353,7 @@ struct OnroadEventSP @0xda96579883444c35 {
     speedLimitPending @22;
     e2eChime @23;
     laneChangeRoadEdge @24;
+    bigModelReady @25;
   }
 }
 
@@ -497,6 +499,7 @@ struct CarStateIC @0xfc6241ed8877b611 {
   batteryDetails @4 :BatteryDetails;
   cruiseSpeedLimit @5 :Float32;
   cruiseSpeedLimitPredicative @6 :Float32;
+  cruiseSpeedLimitPredicativeType @7 :UInt8;
 
   struct BatteryDetails {
     capacity @0 :Float32;

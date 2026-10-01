@@ -6,7 +6,6 @@ See the LICENSE.md file in the root directory for more details.
 """
 
 import pathlib
-import pickle
 import tempfile
 
 import openpilot.sunnypilot.models.helpers as helpers
@@ -118,7 +117,7 @@ ARCHETYPES = {
     is_20hz=True,
     expected_model_type='split',
     expected_constants_class=SplitModelConstants,
-    expected_parser_module='parse_model_outputs_split',
+    expected_parser_module='parse_model_outputs',
     expected_desire_key='desire',
   ),
   'vision_multi_policy': Archetype(
@@ -131,7 +130,7 @@ ARCHETYPES = {
     is_20hz=True,
     expected_model_type='multi_policy',
     expected_constants_class=SplitModelConstants,
-    expected_parser_module='parse_model_outputs_split',
+    expected_parser_module='parse_model_outputs',
     expected_desire_key='desire',
   ),
   'tri_policy': Archetype(
@@ -145,7 +144,7 @@ ARCHETYPES = {
     is_20hz=True,
     expected_model_type='multi_policy',
     expected_constants_class=SplitModelConstants,
-    expected_parser_module='parse_model_outputs_split',
+    expected_parser_module='parse_model_outputs',
     expected_desire_key='desire',
   ),
   'supercombo_non20hz': Archetype(
@@ -164,14 +163,16 @@ ARCHETYPES = {
 def make_pkl_data(archetype):
   return {
     'metadata': archetype.metadata_structure,
-    (CAM_W, CAM_H): {'run_policy': _noop_jit, 'warp_enqueue': _noop_jit},
+    'run_policy': _noop_jit,
+    (CAM_W, CAM_H): _noop_jit,
   }
 
 
 def write_pkl(tmp_path, archetype):
+  from openpilot.selfdrive.modeld.helpers import dump_oob
   pkl_path = tmp_path / 'driving_test_tinygrad.pkl'
   with open(pkl_path, 'wb') as f:
-    pickle.dump(make_pkl_data(archetype), f)
+    dump_oob(make_pkl_data(archetype), f)
   return pkl_path
 
 
@@ -189,8 +190,8 @@ def tmp_path():
 
 def patch_modeld(monkeypatch):
   def _patch(bundle):
-    monkeypatch.setattr(helpers, 'get_active_bundle', lambda params=None: bundle)
-    monkeypatch.setattr(modeld_module, 'get_active_bundle', lambda params=None: bundle)
+    monkeypatch.setattr(helpers, 'get_active_bundle', lambda params=None, *, chestnut=None: bundle)
+    monkeypatch.setattr(modeld_module, 'get_active_bundle', lambda params=None, *, chestnut=None: bundle)
 
   return _patch
 
